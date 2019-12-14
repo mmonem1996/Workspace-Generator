@@ -48,7 +48,7 @@ class DH_Parameters:
             print(self.get_singular_link_values(link[4]))
             slvs.append(self.get_singular_link_values(link[4]))
         generated = []
-        for i in range(len(resolutions)):
+        for i in range(1, len(resolutions)):
             i_ranges = ranges[:]
             i_ranges[i] = slvs[i]
             generated += product(*i_ranges)
