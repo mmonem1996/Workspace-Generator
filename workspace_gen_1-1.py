@@ -75,7 +75,7 @@ disc_robot.add_link(0, 0.5, 0, [0, pi * 2])
 X = []
 Y = []
 Z = []
-v = disc_robot.generated_values([10, 10, 10])
+v = disc_robot.generated_values([20, 20, 20])
 for value in v:
     T = disc_robot.forward_kinematics(list(value))
     X.append(T[0, 3])
