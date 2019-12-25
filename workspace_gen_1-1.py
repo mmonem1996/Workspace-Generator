@@ -12,11 +12,16 @@ class DH_Parameters:
     def add_link(self, alpha, a, d, limits:list, revolute=True):
         self.Links.append([a, alpha, d, revolute, limits])
 
-    def forward_kinematics(self, values: list):
-        if len(values) != len(self.Links):
-            raise(ValueError('num of values != num of links'))
+    def forward_kinematics(self, values: list, start_link=0, end_link=None, end_effector_t=None):
+        if end_link is None: end_link = len(self.Links) - 1
+
+        if len(values) > len(self.Links): 
+            raise(ValueError('num of values > num of links'))
+
+        if (end_link - start_link + 1) != len(values):
+        	raise(ValueError('links entered != num of values'))
         T = np.identity(4)
-        for i in range(len(values)):
+        for i in range(start_link, end_link + 1):
             link = self.Links[i]
             a, alpha, d, revolute, limits = tuple(link[:])
             th = values[i]
@@ -33,6 +38,14 @@ class DH_Parameters:
                                [                0,                 0,           0,                1]
                                ])
             T = T @ Ti
+        if end_effector_t is not None:
+        	Ti = np.array([[1, 0, 0, end_effector_t[0]],
+        		[0, 1, 0, end_effector_t[1]],
+        		[0, 0, 1, end_effector_t[2]],
+        		[0, 0, 0, 1],
+        		])
+        	T = T @ Ti
+
         return T
 
     def generated_values(self, resolutions: list):
@@ -66,6 +79,23 @@ class DH_Parameters:
         slv.sort()
         return slv
 
+    def get_jacobian(self, values: list, start_link=0, end_link=None, end_effector_t=None, dims = None):
+
+    	if dims is None: dims = [1, 1, 0, 0, 0, 0] # default: only x and y
+    	T = self.forward_kinematics(values, start_link, end_link, end_effector_t)
+
+    	if end_link is None: end_link = len(self.Links) - 1
+    	j_rows = []
+    	for i in range(start_link, end_link + 1):
+    		Ti = self.forward_kinematics(values[:i+1], start_link, i)
+    		row = (T[:3,3] - Ti[:3,3]).tolist()
+    		row.extend(Ti[:3,2].tolist())
+    		j_rows.append(np.array(row).tolist())
+    	jacobian = np.array(j_rows).transpose()
+    	return jacobian
+
+
+
 
 disc_robot = DH_Parameters()
 # Sample Robot RRR
@@ -85,7 +115,7 @@ for value in v:
 fig = plt.figure()
 ax = fig.add_subplot(111, projection= '3d')
 ax.scatter(X, Y, Z, c='r', marker= 'o')
-
+print(disc_robot.get_jacobian([0, 0, 0]))
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.set_zlabel('Z')
