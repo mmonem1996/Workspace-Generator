@@ -48,36 +48,31 @@ class DH_Parameters:
 
         return T
 
-    def generated_values(self, resolutions: list):
+    def generated_values(self, resolutions: list, singular_threshold, end_effector_t=None, dims = None):
         # this function generates values for all joints variables
         # it returns a generator that has a similar behavior to nested for loops
         if len(resolutions) != len(self.Links):
             raise (ValueError('num of values != num of links'))
         ranges = []
-        slvs = []
+        singular_values = []
+
         for i in range(len(resolutions)):
             link = self.Links[i]
             ranges.append(list(np.linspace(link[4][0], link[4][1], resolutions[i])))
-            print(self.get_singular_link_values(link[4]))
-            slvs.append(self.get_singular_link_values(link[4]))
-        generated = []
-        for i in range(1, len(resolutions)):
-            i_ranges = ranges[:]
-            i_ranges[i] = slvs[i]
-            generated += product(*i_ranges)
-        return generated
 
-    def get_singular_link_values(self, limits: list):
-        slv = set()
-        rsv = [0, pi, 2*pi]
-        for limit in limits:
-            slv.add(limit)
-        for i in rsv:
-            if limits[0] < i < limits[1]:
-                slv.add(i)
-        slv = list(slv)
-        slv.sort()
-        return slv
+        generated = product(*ranges)
+        for value in generated:
+        	j_det = np.linalg.det(self.get_jacobian(value, end_effector_t=end_effector_t, dims=dims))
+        	if abs(j_det) < singular_threshold or self.any_joint_near_limit(value): 
+        		singular_values.append(value)
+        return singular_values
+
+    def any_joint_near_limit(self, values: list):
+    	for i, value in enumerate(values):
+    		if self.Links[i][4][0] == value or self.Links[i][4][1] == value:
+    			return True
+    	return False
+        
 
     def get_jacobian(self, values: list, start_link=0, end_link=None, end_effector_t=None, dims = None):
 
@@ -100,7 +95,6 @@ class DH_Parameters:
     			else: jac = np.vstack((jac, jacobian[:, i]))
     	
     	jacobian = jac
-    	print(jac.shape)
     	return jacobian
 
 
@@ -109,14 +103,13 @@ class DH_Parameters:
 disc_robot = DH_Parameters()
 # Sample Robot RRR
 disc_robot.add_link(0, 0, 0, [0, pi * 2])
-disc_robot.add_link(pi / 2, 0.5, 0, [0, pi * 2])
-disc_robot.add_link(0, 0.5, 0, [0, pi * 2])
+disc_robot.add_link(0, 0.5, 0, [0, pi / 2])
 X = []
 Y = []
 Z = []
-v = disc_robot.generated_values([20, 20, 20])
+v = disc_robot.generated_values([50, 50],singular_threshold=0.01, dims = [1, 1, 0, 0, 0, 0], end_effector_t=(0.25, 0, 0))
 for value in v:
-    T = disc_robot.forward_kinematics(list(value))
+    T = disc_robot.forward_kinematics(list(value), end_effector_t=(0.25, 0, 0))
     X.append(T[0, 3])
     Y.append(T[1, 3])
     Z.append(T[2, 3])
