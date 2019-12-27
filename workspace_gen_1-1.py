@@ -81,17 +81,26 @@ class DH_Parameters:
 
     def get_jacobian(self, values: list, start_link=0, end_link=None, end_effector_t=None, dims = None):
 
-    	if dims is None: dims = [1, 1, 0, 0, 0, 0] # default: only x and y
+    	if dims is None: dims = [1, 1, 1, 0, 0, 0] # default: only x and y
     	T = self.forward_kinematics(values, start_link, end_link, end_effector_t)
 
     	if end_link is None: end_link = len(self.Links) - 1
-    	j_rows = []
+    	jacobian = None
     	for i in range(start_link, end_link + 1):
     		Ti = self.forward_kinematics(values[:i+1], start_link, i)
-    		row = (T[:3,3] - Ti[:3,3]).tolist()
-    		row.extend(Ti[:3,2].tolist())
-    		j_rows.append(np.array(row).tolist())
-    	jacobian = np.array(j_rows).transpose()
+    		row = (T[:3,3] - Ti[:3,3])
+    		row = np.hstack((row, Ti[:3,2]))
+    		if i == start_link : jacobian = np.array(row)
+    		else: jacobian = np.vstack((jacobian, row))
+    	
+    	jac = None
+    	for i, axis in enumerate(dims):
+    		if axis == 1:
+    			if i == 0 : jac = jacobian[:, i]
+    			else: jac = np.vstack((jac, jacobian[:, i]))
+    	
+    	jacobian = jac
+    	print(jac.shape)
     	return jacobian
 
 
@@ -115,7 +124,7 @@ for value in v:
 fig = plt.figure()
 ax = fig.add_subplot(111, projection= '3d')
 ax.scatter(X, Y, Z, c='r', marker= 'o')
-print(disc_robot.get_jacobian([0, 0, 0]))
+
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
 ax.set_zlabel('Z')
